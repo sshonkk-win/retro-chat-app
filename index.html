@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Retro Chat App</title>
     <link rel="stylesheet" href="https://jdan.github.io/98.css/98.css">
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
     <style>
         body {
             background-color: #c0c0c0;
@@ -75,6 +77,22 @@
     </div>
 
     <script>
+        // Firebase configuration
+        const firebaseConfig = {
+			apiKey: "AIzaSyDrKZhUWN_8sThMh3G-zCKtDMbRG2q33Fc",
+			authDomain: "retro-chat-github.firebaseapp.com",
+			databaseURL: "https://retro-chat-github-default-rtdb.firebaseio.com",
+			projectId: "retro-chat-github",
+			storageBucket: "retro-chat-github.appspot.com",
+			messagingSenderId: "188172778725",
+			appId: "1:188172778725:web:05f488e5008ccb2ce4a80c",
+			measurementId: "G-L8ZQBDSCEJ"
+		};
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
         const messagesContainer = document.getElementById('messages');
         const messageInput = document.getElementById('messageInput');
         const sendButton = document.getElementById('sendButton');
@@ -85,17 +103,13 @@
 
         let username = '';
         let currentRoom = 'Room 1';
-        const rooms = {
-            'Room 1': [],
-            'Room 2': [],
-        };
 
         // Load username from localStorage if available
         if (localStorage.getItem('username')) {
             username = localStorage.getItem('username');
             registrationWindow.style.display = 'none'; // Hide registration window
             chatWindow.style.display = 'block'; // Show chat window
-            updateMessages();
+            loadMessages();
             sendButton.disabled = false; // Enable send button
         } else {
             // Show registration window if no username is set
@@ -110,15 +124,30 @@
                 localStorage.setItem('username', username); // Save username to localStorage
                 registrationWindow.style.display = 'none'; // Hide registration window
                 chatWindow.style.display = 'block'; // Show chat window
-                updateMessages();
+                loadMessages();
                 sendButton.disabled = false; // Enable send button
             }
         });
 
+        // Load messages from the database
+        function loadMessages() {
+            const messagesRef = database.ref('messages/' + currentRoom);
+            messagesRef.on('value', (snapshot) => {
+                messagesContainer.innerHTML = ''; // Clear existing messages
+                snapshot.forEach((childSnapshot) => {
+                    const msgData = childSnapshot.val();
+                    const messageElement = document.createElement('p');
+                    messageElement.textContent = `${msgData.username}: ${msgData.text}`;
+                    messagesContainer.appendChild(messageElement);
+                });
+                messagesContainer.scrollTop = messagesContainer.scrollHeight; // Scroll to bottom
+            });
+        }
+
         // Switching rooms
         function switchRoom(room) {
             currentRoom = room;
-            updateMessages();
+            loadMessages();
         }
 
         document.getElementById('room1Button').addEventListener('click', () => switchRoom('Room 1'));
@@ -128,22 +157,15 @@
         sendButton.addEventListener('click', () => {
             const messageText = messageInput.value.trim();
             if (messageText) {
-                rooms[currentRoom].push(`${username}: ${messageText}`);
+                const messagesRef = database.ref('messages/' + currentRoom);
+                const newMessageRef = messagesRef.push();
+                newMessageRef.set({
+                    username: username,
+                    text: messageText
+                });
                 messageInput.value = ''; // Clear input
-                updateMessages();
             }
         });
-
-        // Update messages display
-        function updateMessages() {
-            messagesContainer.innerHTML = `<p>${username} has joined ${currentRoom}!</p>`;
-            rooms[currentRoom].forEach(msg => {
-                const messageElement = document.createElement('p');
-                messageElement.textContent = msg;
-                messagesContainer.appendChild(messageElement);
-            });
-            messagesContainer.scrollTop = messagesContainer.scrollHeight; // Scroll to bottom
-        }
 
         // Enable sending messages with Enter key
         messageInput.addEventListener('keypress', (event) => {
